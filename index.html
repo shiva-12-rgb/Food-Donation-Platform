@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ShareBite – Food Donation Platform</title>
+<style>
+:root{--bg:#f6fbf7;--card:#fff;--tx:#1f2937;--mut:#6b7280;--g:#16a34a;--d:#14532d;--o:#f97316;--ln:#e5e7eb;--l:#f0fdf4;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1a14;--card:#16231b;--tx:#e5efe8;--mut:#9ca3af;--ln:#294034;--l:#143222;color-scheme:dark}}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{background:var(--d);color:#fff;padding:12px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+header h1{margin:0;font-size:20px}header small{display:block;opacity:.8}
+.roles{display:flex;gap:6px;flex-wrap:wrap}.roles button{background:transparent;border:1px solid #86efac;color:#fff}.roles button.on{background:var(--g);border-color:var(--g)}
+header select{padding:6px;border-radius:8px}
+nav{display:flex;gap:4px;overflow-x:auto;padding:8px 12px;background:var(--card);border-bottom:1px solid var(--ln)}
+nav button{background:none;color:var(--tx);border:0;border-bottom:3px solid transparent;border-radius:0;white-space:nowrap}nav button.on{border-color:var(--g);color:var(--g);font-weight:600}
+main{max-width:980px;margin:0 auto;padding:16px}
+footer{max-width:980px;margin:0 auto;padding:16px;color:var(--mut);font-size:12px}
+button{background:var(--g);color:#fff;border:0;padding:8px 14px;border-radius:8px;cursor:pointer;font:inherit}button.ghost{background:transparent;color:var(--tx);border:1px solid var(--ln)}button.red{background:#dc2626}
+input,select,textarea{font:inherit;padding:8px;border:1px solid var(--ln);border-radius:8px;background:var(--card);color:var(--tx);max-width:100%}
+.card{background:var(--card);border:1px solid var(--ln);border-radius:12px;padding:12px 14px;margin:0 0 10px}
+summary{cursor:pointer}small,.mut{color:var(--mut)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px}.stat{background:var(--l);border:1px solid var(--ln);border-radius:12px;padding:10px;text-align:center}.stat b{display:block;font-size:24px;color:var(--g)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.form label{display:flex;flex-direction:column;gap:3px;font-size:13px}.full{grid-column:1/-1}
+.b{font-size:11px;padding:2px 8px;border-radius:99px;background:#e5e7eb;color:#111;vertical-align:middle}
+.b-Available,.b-Completed{background:#bbf7d0}.b-Pending,.b-Reserved,.b-Open{background:#fed7aa}.b-Accepted{background:#bfdbfe}.b-PickedUp{background:#e9d5ff}.b-Rejected,.b-Cancelled,.b-Removed,.b-Expired{background:#fecaca}
+.hero{background:var(--l);border:1px solid var(--ln);border-radius:14px;padding:16px;margin-bottom:14px}.hero h2{margin:0 0 4px;color:var(--g)}
+.code{font-size:20px;letter-spacing:3px;color:var(--o)}
+.conf{text-align:center;padding:30px 10px}.conf .tick{font-size:56px;color:var(--g)}
+.bar{height:14px;background:var(--g);border-radius:7px;min-width:4px}
+.tl{margin:6px 0 0;padding-left:18px;font-size:12px;color:var(--mut)}
+#toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:#111;color:#fff;padding:10px 16px;border-radius:10px;display:none;max-width:90%;z-index:9}
+.note{background:#fff7ed;border:1px solid #fdba74;color:#7c2d12;border-radius:10px;padding:8px 12px;margin-bottom:12px;font-size:13px}
+@media (prefers-color-scheme:dark){.note{background:#3a2412;color:#fed7aa;border-color:#9a5b24}.b{color:#111}}
+</style></head><body>
+<div id="app"></div><div id="toast"></div>
+<script>
+const KEY='sharebite_v1',H=3600000,NOW=()=>Date.now(),ACT=['Pending','Accepted','PickedUp','Completed'];
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const T=ms=>new Date(ms).toLocaleString([],{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+const li=ms=>new Date(ms-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16);
+const CATS=['Cooked meal','Bakery','Produce','Packaged','Beverages'];
+let S,role='donor',tab='dash',conf=null,F={q:'',cat:'',diet:'',area:''},me={donor:'d2',recipient:'r2'};
+function seed(){const t=NOW();
+ const U=[['d1','Spice Garden Restaurant','donor','Restaurant','Gachibowli'],['d2','Green Leaf Caterers','donor','Caterer','Madhapur'],['d3','Fresh Mart Bakery','donor','Shop','Kukatpally'],['d4','Community Kitchen Hub','donor','Community kitchen','Secunderabad'],['d5','Sunrise Hotel','donor','Hotel','Banjara Hills'],
+ ['r1','Hope Shelter','rec','Shelter','Gachibowli'],['r2','Annapurna Food Bank','rec','Food bank','Madhapur'],['r3','Little Hands Orphanage','rec','NGO','Kukatpally']]
+ .map((u,i)=>({id:u[0],name:u[1],kind:u[2],type:u[3],area:u[4],phone:'+91 90000 0'+(1000+i),addr:'Demo Street '+(i+1)+', '+u[4]+', Hyderabad (demo)',ok:u[0]!=='r3',served:60+i*20}));
+ const rows=[['d1','Veg biryani trays','Cooked meal','Veg',40,'portions',-1,4,'Eat within 4 hours of cooking','Held hot above 60°C in covered trays'],
+ ['d2','Dal and rice boxes','Cooked meal','Veg',60,'portions',1,5,'Eat within 4 hours of cooking','Packed hot, sealed boxes'],
+ ['d2','Wedding buffet surplus','Cooked meal','Veg',80,'portions',2,6,'Use within 3 hours of pickup','Chafing dishes, kept above 60°C'],
+ ['d2','Chapati and curry packs','Cooked meal','Veg',30,'portions',-2,3,'Eat same day','Sealed packs, cooled quickly'],
+ ['d3','Assorted bread loaves','Bakery','Veg',25,'items',0,6,'Best before tomorrow','Baked today, room temperature'],
+ ['d3','Buns and pastries','Bakery','Veg',40,'items',1,7,'Eat within 24 hours','Baked today, no cream fillings'],
+ ['d2','Vegetable pulao','Cooked meal','Vegan',50,'portions',0,4,'Eat within 4 hours of cooking','Held hot in covered vessels'],
+ ['d4','Fresh vegetables crate','Produce','Vegan',20,'kg',2,10,'Use within 2 days','Washed, stored cool'],
+ ['d5','Chicken curry and rice','Cooked meal','Non-veg',35,'portions',1,4,'Eat within 3 hours of cooking','Held above 60°C, sealed containers'],
+ ['d5','Packaged juice boxes','Beverages','Vegan',60,'items',3,12,'Check printed expiry date','Sealed, sealed cartons'],
+ ['d1','Fruit salad cups','Produce','Vegan',30,'items',-6,-2,'Eat same day','Refrigerated'],
+ ['d4','Sealed biscuit packs','Packaged','Veg',100,'items',4,20,'Check printed expiry date','Sealed factory packs']];
+ const L=rows.map((r,i)=>({id:'l'+(i+1),donor:r[0],title:r[1],cat:r[2],diet:r[3],qty:r[4],unit:r[5],desc:'Surplus '+r[1].toLowerCase()+' ready for community use.',prep:t+(r[6]-2)*H,start:t+r[6]*H,end:t+r[7]*H,useby:r[8],handling:r[9],loc:U.find(u=>u.id===r[0]).addr,st:'Active'}));
+ const mk=(id,lid,rid,qty,st,code,steps)=>({id,lid,rid,qty,st,code,note:'',col:'Volunteer (demo)',hist:steps.map((s,i)=>({t:t-(steps.length-i)*H,by:s[0],from:i?steps[i-1][1]:'—',to:s[1],note:s[2]||''}))});
+ const Q=[mk('q1','l3','r1',15,'Pending','2210',[['Hope Shelter','Pending']]),
+ mk('q2','l2','r2',20,'Accepted','4821',[['Annapurna Food Bank','Pending'],['Green Leaf Caterers','Accepted']]),
+ mk('q3','l9','r3',5,'Rejected','1357',[['Little Hands Orphanage','Pending'],['Sunrise Hotel','Rejected','Pickup window clashes']]),
+ mk('q4','l5','r1',6,'Cancelled','9082',[['Hope Shelter','Pending'],['Hope Shelter','Cancelled','Could not collect in time']]),
+ mk('q5','l7','r2',10,'PickedUp','7340',[['Annapurna Food Bank','Pending'],['Green Leaf Caterers','Accepted'],['Green Leaf Caterers','PickedUp']]),
+ mk('q6','l4','r1',12,'Completed','1190',[['Hope Shelter','Pending'],['Green Leaf Caterers','Accepted'],['Green Leaf Caterers','PickedUp'],['Hope Shelter','Completed']])];
+ const R=[{id:'p1',lid:'l1',by:'Hope Shelter',reason:'Quantity listed seems too high',st:'Open'},{id:'p2',lid:'l10',by:'Annapurna Food Bank',reason:'Missing handling details',st:'Open'}];
+ return {U,L,Q,R};}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+try{S=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+if(!S||!S.L)S=seed();
+const org=id=>S.U.find(u=>u.id===id),lis=id=>S.L.find(l=>l.id===id);
+const left=l=>l.qty-S.Q.filter(q=>q.lid===l.id&&ACT.includes(q.st)).reduce((a,q)=>a+q.qty,0);
+const lst=l=>l.st==='Removed'?'Removed':NOW()>l.end?'Expired':left(l)<=0?'Reserved':'Available';
+const cd=ms=>{const d=ms-NOW();if(d<=0)return 'ended';return Math.floor(d/H)+'h '+Math.floor(d%H/60000)+'m left'};
+const bd=s=>`<span class="b b-${s}">${s==='PickedUp'?'Picked Up':s}</span>`;
+function toast(m){const e=$('toast');e.textContent=m;e.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display='none',3500)}
+const tabsFor=()=>role==='donor'?[['dash','Dashboard'],['new','New listing'],['safety','Safety'],['impact','Impact']]:role==='rec'?[['browse','Browse food'],['reqs','My requests'],['safety','Safety'],['impact','Impact']]:[['admin','Admin panel'],['safety','Safety'],['impact','Impact']];
+function setRole(r){role=r;tab=tabsFor()[0][0];conf=null;render()}
+function setTab(t){tab=t;conf=null;render()}
+function setReq(q,to,by,note){q.hist.push({t:NOW(),by,from:q.st,to,note:note||''});q.st=to;save()}
+function stat(a){return `<div class="stats">${a.map(x=>`<div class="stat"><b>${x[0]}</b>${x[1]}</div>`).join('')}</div>`}
+function hist(q){return `<details><summary><small>Status history (${q.hist.length})</small></summary><ul class="tl">${q.hist.map(h=>`<li>${T(h.t)}: ${h.from} → ${h.to} by ${esc(h.by)}${h.note?' ('+esc(h.note)+')':''}</li>`).join('')}</ul></details>`}
+function rcard(q,v){const l=lis(q.lid),r=org(q.rid);let a='';
+ if(v==='donor'){
+  if(q.st==='Pending')a=`<div class="row"><button onclick="act('${q.id}','Accepted')">Accept</button><input id="rj_${q.id}" placeholder="Reject reason"><button class="ghost" onclick="act('${q.id}','Rejected')">Reject</button></div>`;
+  else if(q.st==='Accepted')a=`<div class="row"><input id="cd_${q.id}" placeholder="4-digit pickup code" maxlength="4"><button onclick="act('${q.id}','PickedUp')">Confirm pickup</button></div>`;
+  else if(q.st==='PickedUp')a='<small>Waiting for the recipient to confirm receipt.</small>';
+ }else{
+  if(q.st==='Accepted'||q.st==='PickedUp')a+=`<p>Pickup code: <b class="code">${q.code}</b></p>`;
+  if(q.st==='Pending'||q.st==='Accepted')a+=`<button class="ghost" onclick="act('${q.id}','Cancelled')">Cancel request</button>`;
+  if(q.st==='PickedUp')a+=`<button onclick="act('${q.id}','Completed')">Confirm receipt</button>`;}
+ return `<div class="card"><b>${esc(l.title)}</b> ${bd(q.st)}<br><small>${v==='donor'?'Requested by '+esc(r.name):'From '+esc(org(l.donor).name)} · ${q.qty} ${l.unit} · Collector: ${esc(q.col)}${q.note?' · Note: '+esc(q.note):''}</small>${a}${hist(q)}</div>`}
+const CONF={Pending:['Request submitted','Waiting for the donor to accept.'],Accepted:['Request accepted','Quantity is reserved. The recipient can now collect using the pickup code.'],Rejected:['Request rejected','The quantity returns to the listing.'],Cancelled:['Request cancelled','The quantity returns to the listing.'],PickedUp:['Pickup confirmed','The recipient must now confirm receipt.'],Completed:['Donation completed','Thank you! This counts towards the impact dashboard.']};
+function act(id,to){const q=S.Q.find(x=>x.id===id),l=lis(q.lid),by=role==='donor'?org(l.donor).name:org(q.rid).name;let note='';
+ if(to==='Rejected')note=$('rj_'+id).value.trim()||'No reason given';
+ if(to==='PickedUp'&&$('cd_'+id).value.trim()!==q.code)return toast('Wrong pickup code. Ask the recipient for their 4-digit code.');
+ setReq(q,to,by,note);conf={t:CONF[to][0],l:[l.title+' · '+q.qty+' '+l.unit,CONF[to][1],'Status: '+to]};render()}
+function request(id){const l=lis(id),o=org(me.recipient),qty=+$('qq_'+id).value,col=$('qc_'+id).value.trim();
+ if(!o.ok)return toast('Your organization is awaiting admin verification.');
+ if(lst(l)!=='Available')return toast('This listing is no longer available.');
+ if(!(qty>=1)||qty>left(l))return toast('Choose a quantity between 1 and '+left(l)+'.');
+ if(!col)return toast('Enter the name of the person collecting.');
+ const q={id:'q'+NOW(),lid:id,rid:o.id,qty,st:'Pending',code:String(1000+Math.floor(Math.random()*9000)),note:$('qn_'+id).value.trim(),col,hist:[{t:NOW(),by:o.name,from:'—',to:'Pending',note:''}]};
+ S.Q.push(q);save();tab='reqs';conf={t:CONF.Pending[0],l:[l.title+' · '+qty+' '+l.unit,'Pickup window: '+T(l.start)+' – '+T(l.end),CONF.Pending[1]]};render()}
+function report(id){const r=$('rp_'+id).value.trim();if(!r)return toast('Please enter a reason.');S.R.push({id:'p'+NOW(),lid:id,by:org(me.recipient).name,reason:r,st:'Open'});save();toast('Report sent to admin.');$('rp_'+id).value=''}
+function newListing(){const g=i=>$(i).value.trim(),s=new Date($('n_s').value).getTime(),e=new Date($('n_e').value).getTime(),qty=+g('n_q');
+ if(!g('n_t')||!(qty>0)||!g('n_u')||!g('n_h'))return toast('Fill in title, quantity, use-by and handling details.');
+ if(!(e>s)||e<NOW())return toast('Pickup window must end in the future, after it starts.');
+ if(!$('n_ok').checked)return toast('Please confirm the safety declaration.');
+ const d=org(me.donor);S.L.push({id:'l'+NOW(),donor:d.id,title:g('n_t'),desc:g('n_d')||'No description',cat:g('n_c'),diet:g('n_v'),qty,unit:g('n_x'),prep:new Date($('n_p').value).getTime()||NOW(),start:s,end:e,useby:g('n_u'),handling:g('n_h'),loc:g('n_l')||d.addr,st:'Active'});save();
+ tab='dash';conf={t:'Listing published',l:[g('n_t')+' · '+qty+' '+g('n_x'),'Visible to verified recipients until '+T(e)]};render()}
+function removeL(id,on){const l=lis(id);if(on){l.st='Removed';S.Q.filter(q=>q.lid===id&&(q.st==='Pending'||q.st==='Accepted')).forEach(q=>setReq(q,'Cancelled','Admin',$('rm_'+id).value.trim()||'Listing removed by admin'))}else l.st='Active';save();render()}
+function repSet(id,st){S.R.find(r=>r.id===id).st=st;save();render()}
+function verify(id){const o=org(id);o.ok=!o.ok;save();render()}
+function resetAll(){S=seed();save();conf=null;render();toast('Demo data reset.')}
+function reqForm(l){return `<div class="row"><input id="qq_${l.id}" type="number" min="1" max="${left(l)}" value="1" style="width:90px" title="Quantity"><input id="qc_${l.id}" placeholder="Collector name (demo)"><input id="qn_${l.id}" placeholder="Note (optional)"><button onclick="request('${l.id}')">Request</button></div>`}
+function lcard(l){const o=org(l.donor),s=lst(l);
+ return `<details class="card"><summary><b>${esc(l.title)}</b> ${bd(s)}<br><small>${esc(o.name)} · ${o.area} · ${left(l)} of ${l.qty} ${l.unit} left · ${l.cat} · ${l.diet}</small><br><small>Pickup ${T(l.start)} – ${T(l.end)} (${cd(l.end)})</small></summary>
+ <p>${esc(l.desc)}</p><p><small>Prepared: ${T(l.prep)}<br>Use-by guidance: ${esc(l.useby)}<br>Handling: ${esc(l.handling)}<br>Pickup location: ${esc(l.loc)}</small></p>${s==='Available'?reqForm(l):''}
+ <div class="row"><input id="rp_${l.id}" placeholder="Report reason"><button class="ghost" onclick="report('${l.id}')">Report listing</button></div></details>`}
+function listHtml(){const q=F.q.toLowerCase(),a=S.L.filter(l=>['Available','Reserved'].includes(lst(l))&&(!q||(l.title+l.desc).toLowerCase().includes(q))&&(!F.cat||l.cat===F.cat)&&(!F.diet||l.diet===F.diet)&&(!F.area||org(l.donor).area===F.area)).sort((x,y)=>x.end-y.end);
+ return a.length?a.map(lcard).join(''):'<p class="mut">No listings match your filters.</p>'}
+function filt(k,v){F[k]=v;$('list').innerHTML=listHtml()}
+const opts=(a,v)=>a.map(x=>`<option ${x===v?'selected':''}>${x}</option>`).join('');
+function view(){
+ if(conf)return `<div class="card conf"><div class="tick">✓</div><h2>${esc(conf.t)}</h2>${conf.l.map(x=>'<p>'+esc(x)+'</p>').join('')}<button onclick="conf=null;render()">Continue</button></div>`;
+ const d=org(me.donor),r=org(me.recipient);
+ if(tab==='dash'){const ml=S.L.filter(l=>l.donor===d.id),mq=S.Q.filter(q=>lis(q.lid).donor===d.id),done=mq.filter(q=>q.st==='Completed');
+  return stat([[ml.filter(l=>lst(l)==='Available').length,'Active listings'],[mq.filter(q=>q.st==='Pending').length,'Pending requests'],[done.length,'Completed'],[done.reduce((a,q)=>a+q.qty,0),'Portions donated']])+
+  `<h3>Requests on your listings</h3>${mq.length?mq.map(q=>rcard(q,'donor')).join(''):'<p class="mut">No requests yet.</p>'}<h3>Your listings</h3>${ml.map(l=>`<div class="card"><b>${esc(l.title)}</b> ${bd(lst(l))}<br><small>${left(l)} of ${l.qty} ${l.unit} left · Pickup ${T(l.start)} – ${T(l.end)}</small></div>`).join('')}`}
+ if(tab==='new'){const n=NOW();return `<h3>New food listing</h3><div class="card"><div class="form">
+  <label>Title<input id="n_t"></label><label>Category<select id="n_c">${opts(CATS)}</select></label><label>Dietary type<select id="n_v">${opts(['Veg','Non-veg','Vegan'])}</select></label>
+  <label>Quantity<input id="n_q" type="number" min="1"></label><label>Unit<select id="n_x">${opts(['portions','items','kg'])}</select></label><label>Prepared at<input id="n_p" type="datetime-local" value="${li(n-H)}"></label>
+  <label>Pickup from<input id="n_s" type="datetime-local" value="${li(n)}"></label><label>Pickup until<input id="n_e" type="datetime-local" value="${li(n+3*H)}"></label><label>Use-by guidance<input id="n_u" placeholder="e.g. Eat within 4 hours"></label>
+  <label class="full">Handling and storage<input id="n_h" placeholder="e.g. Held hot above 60°C"></label><label class="full">Description<textarea id="n_d" rows="2"></textarea></label><label class="full">Pickup location (demo address)<input id="n_l" value="${esc(d.addr)}"></label>
+  <label class="full" style="flex-direction:row;align-items:center"><input id="n_ok" type="checkbox"> I confirm this information is accurate and the food was handled according to applicable local food-safety rules.</label></div>
+  <div class="row"><button onclick="newListing()">Publish listing</button></div></div>`}
+ if(tab==='browse')return (r.ok?'':'<div class="note">Your organization is awaiting admin verification, so you can browse but not request yet.</div>')+
+  `<div class="row" style="margin:0 0 10px"><input placeholder="Search food" value="${esc(F.q)}" oninput="filt('q',this.value)"><select onchange="filt('cat',this.value)"><option value="">All categories</option>${opts(CATS,F.cat)}</select><select onchange="filt('diet',this.value)"><option value="">All diets</option>${opts(['Veg','Non-veg','Vegan'],F.diet)}</select><select onchange="filt('area',this.value)"><option value="">All areas</option>${opts([...new Set(S.U.filter(u=>u.kind==='donor').map(u=>u.area))],F.area)}</select></div><div id="list">${listHtml()}</div>`;
+ if(tab==='reqs'){const mq=S.Q.filter(q=>q.rid===r.id),done=mq.filter(q=>q.st==='Completed');
+  return stat([[mq.filter(q=>q.st==='Pending').length,'Pending'],[mq.filter(q=>q.st==='Accepted').length,'Accepted'],[done.length,'Completed'],[done.reduce((a,q)=>a+q.qty,0),'Portions received']])+(mq.length?mq.map(q=>rcard(q,'rec')).join(''):'<p class="mut">No requests yet. Browse food to make one.</p>')}
+ if(tab==='admin'){return stat([[S.U.length,'Organizations'],[S.L.length,'Listings'],[S.Q.length,'Requests'],[S.R.filter(x=>x.st==='Open').length,'Open reports']])+
+  `<h3>Reports</h3>${S.R.map(x=>`<div class="card"><b>${esc(lis(x.lid)?lis(x.lid).title:'Listing')}</b> ${bd(x.st)}<br><small>By ${esc(x.by)}: ${esc(x.reason)}</small><div class="row"><button class="ghost" onclick="repSet('${x.id}','Reviewed')">Reviewed</button><button class="ghost" onclick="repSet('${x.id}','Action taken')">Action taken</button><button class="ghost" onclick="repSet('${x.id}','Dismissed')">Dismiss</button></div></div>`).join('')}
+  <h3>Listings</h3>${S.L.map(l=>`<div class="card"><b>${esc(l.title)}</b> ${bd(lst(l))}<br><small>${esc(org(l.donor).name)} · ${l.qty} ${l.unit}</small><div class="row">${l.st==='Removed'?`<button class="ghost" onclick="removeL('${l.id}',false)">Restore</button>`:`<input id="rm_${l.id}" placeholder="Reason"><button class="red" onclick="removeL('${l.id}',true)">Remove</button>`}</div></div>`).join('')}
+  <h3>Recipient verification</h3>${S.U.filter(u=>u.kind==='rec').map(u=>`<div class="card"><b>${esc(u.name)}</b> ${u.ok?'<span class="b b-Available">Verified</span>':'<span class="b b-Pending">Pending</span>'} <small>${u.type} · ${u.area} · serves ${u.served} people</small><div class="row"><button class="ghost" onclick="verify('${u.id}')">${u.ok?'Revoke':'Approve'}</button></div></div>`).join('')}`}
+ if(tab==='impact'){const dn=S.Q.filter(q=>q.st==='Completed'),m=dn.reduce((a,q)=>a+(lis(q.lid).unit==='kg'?Math.round(q.qty*2.5):q.qty),0),by=CATS.map(c=>[c,S.Q.filter(q=>ACT.includes(q.st)&&lis(q.lid).cat===c).reduce((a,q)=>a+q.qty,0)]),mx=Math.max(1,...by.map(x=>x[1]));
+  return `<div class="hero"><h2>${m} meals redistributed</h2><small>Estimate: 1 portion or item = 1 meal; 1 kg ≈ 2.5 meals. Completed donations only.</small></div>`+stat([[S.U.filter(u=>u.kind==='donor').length,'Donors'],[S.U.filter(u=>u.kind==='rec'&&u.ok).length,'Verified recipients'],[dn.length,'Completed donations'],[S.Q.filter(q=>q.st==='Pending').length,'Pending']])+`<div class="card"><b>Food requested by category</b>${by.map(x=>`<div class="row"><span style="width:100px">${x[0]}</span><div class="bar" style="width:${x[1]/mx*60}%"></div><small>${x[1]}</small></div>`).join('')}</div>`}
+ return `<div class="card"><h3>Food safety assumptions and limitations</h3><ul><li>ShareBite is a coordination platform, not a food-safety certification system. It does not inspect or certify food.</li><li>Donors must give accurate preparation, handling and use-by information and follow applicable local food-safety rules.</li><li>Recipients should inspect food at pickup and decline anything that looks unsafe.</li><li>High-risk foods (cooked meals, dairy, meat) need clear time and temperature handling.</li><li>Listings expire automatically after the pickup window. Quantities are held when a request is made, so double booking is prevented.</li><li>All addresses, phones and organizations are demo data.</li></ul><p><b>Limitations:</b> no delivery logistics, no temperature monitoring, manual verification of charities, no real notifications, and data is stored only in this browser.</p></div>`}
+function render(){const tb=tabsFor();
+ $('app').innerHTML=`<header><div><h1>🍲 ShareBite</h1><small>Turning surplus food into community meals</small></div><div class="roles">${[['donor','Donor'],['rec','Recipient'],['admin','Admin']].map(x=>`<button class="${role===x[0]?'on':''}" onclick="setRole('${x[0]}')">${x[1]}</button>`).join('')}</div>${role==='admin'?'':`<select onchange="me['${role==='donor'?'donor':'recipient'}']=this.value;conf=null;render()">${S.U.filter(u=>u.kind===role).map(u=>`<option value="${u.id}" ${me[role==='donor'?'donor':'recipient']===u.id?'selected':''}>${esc(u.name)}</option>`).join('')}</select>`}</header>
+ <nav>${tb.map(x=>`<button class="${tab===x[0]?'on':''}" onclick="setTab('${x[0]}')">${x[1]}</button>`).join('')}</nav><main>${view()}</main>
+ <footer>ShareBite is a coordination platform, not a food-safety certification system. Donors must follow applicable local food-safety rules. All data is demo data. <a href="#" onclick="resetAll();return false">Reset demo data</a></footer>`}
+render();
+</script></body></html>
